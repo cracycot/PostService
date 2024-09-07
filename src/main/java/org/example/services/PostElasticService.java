@@ -1,10 +1,8 @@
 package org.example.services;
 
 import org.example.DTO.PostDTO;
-import org.example.models.Post;
 import org.example.models.PostElastic;
 import org.example.repositories.PostElasticRepository;
-import org.example.repositories.PostRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
@@ -19,7 +17,12 @@ public class PostElasticService {
     private ElasticsearchOperations elasticsearchOperations;
 
     public List<PostElastic> searchByPattern(String pattern) {
-        return postElasticRepository.findByTitleContaining(pattern);
+        List<PostElastic> postElasticsTitle = postElasticRepository.findByTitleContaining(pattern);
+        for (PostElastic postElastic: postElasticsTitle) {
+            System.out.println(postElastic.getContent());
+        }
+        postElasticsTitle.addAll(postElasticRepository.findByContentContaining(pattern));
+        return postElasticsTitle;
     }
 
     public Optional<PostElastic> getPostById(Long id) {
@@ -43,7 +46,6 @@ public class PostElasticService {
             throw new RuntimeException("Post not found with id: " + id);
         }
     }
-
     public PostElastic fromPostDTOToPostElastic(PostDTO postDTO) {
         return new PostElastic.Builder()
                 .id(postDTO.getId())
