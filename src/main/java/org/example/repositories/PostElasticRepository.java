@@ -6,6 +6,6 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchRepository
 import java.util.List;
 
 public interface PostElasticRepository extends ElasticsearchRepository<PostElastic, Long> {
-    List<PostElastic> findByTitleContaining(String title);
-    List<PostElastic> findByContentContaining(String content);
+    List<PostElastic> findByTitleContaining(String title); // надо сдлелать pagebale
+    List<PostElastic> findByContentContaining(String content); //как обьединить
 }
