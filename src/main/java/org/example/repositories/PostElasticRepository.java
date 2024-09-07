@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface PostElasticRepository extends ElasticsearchRepository<PostElastic, Long> {
     List<PostElastic> findByTitleContaining(String title);
+    List<PostElastic> findByContentContaining(String content);
 }
