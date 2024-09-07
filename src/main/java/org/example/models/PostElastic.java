@@ -46,4 +46,27 @@ public class PostElastic {
     public void setContent(String content) {
         this.content = content;
     }
+
+    public static class Builder {
+        private static PostElastic post = new PostElastic();
+
+        public Builder id(Long id) {
+            post.id = id;
+            return this;
+        }
+
+        public Builder title(String title) {
+            post.title = title;
+            return this;
+        }
+
+        public Builder content(String content) {
+            post.content = content;
+            return this;
+        }
+
+        public PostElastic build() {
+            return post;
+        }
+    }
 }
