@@ -4,6 +4,9 @@ import org.example.DTO.PostDTO;
 import org.example.models.PostElastic;
 import org.example.repositories.PostElasticRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 
@@ -16,13 +19,8 @@ public class PostElasticService {
 
     private ElasticsearchOperations elasticsearchOperations;
 
-    public List<PostElastic> searchByPattern(String pattern) {
-        List<PostElastic> postElasticsTitle = postElasticRepository.findByTitleContaining(pattern);
-        for (PostElastic postElastic: postElasticsTitle) {
-            System.out.println(postElastic.getContent());
-        }
-        postElasticsTitle.addAll(postElasticRepository.findByContentContaining(pattern));
-        return postElasticsTitle;
+    public Page<PostElastic> searchByPattern(String pattern, Pageable pageable) {
+        return postElasticRepository.findByTitleContainingOrContentContaining(pattern, pattern, pageable);
     }
 
     public Optional<PostElastic> getPostById(Long id) {

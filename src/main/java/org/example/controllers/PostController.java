@@ -9,6 +9,9 @@ import org.example.services.PostService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -59,18 +62,22 @@ public class PostController {
         }
 
     }
-
+//    @RequestParam(defaultValue = "0") int page,
+//    @RequestParam(defaultValue = "10") int size
     @GetMapping("/search")
-    public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern) {
+    public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
+                                       @RequestParam(name = "page", defaultValue = "0") int page,
+                                       @RequestParam(name = "size", defaultValue = "10") int size) {
         try {
-//            ArrayList<PostDTO> postDTOS = postElasticService.searchByPattern(pattern).stream().map(x -> postElasticService.fromPostElasticToPostDTO(x)).toArray();
+            Pageable pageable = PageRequest.of(page, size);
+            Page<PostElastic> postElasticArrayList = postElasticService.searchByPattern(pattern, pageable);
             ArrayList<PostDTO> postDTOS = new ArrayList<>();
-            ArrayList<PostElastic> postElasticArrayList = new ArrayList<>(postElasticService.searchByPattern(pattern));
             for (PostElastic postElastic: postElasticArrayList) {
                 postDTOS.add(postElasticService.fromPostElasticToPostDTO(postElastic));
+                System.out.println(postElastic.getContent());
             }
             return ResponseEntity.ok().body(postDTOS);
-        }  catch (Exception e) {
+        } catch (Exception e) {
             log.error("Ошибка при поиске постов", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
         }

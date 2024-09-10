@@ -9,6 +9,7 @@ public class PostDTO {
 
     private Long idOwner;
     private String title;
+    private String content;
 
     public Long getId() {
         return id;
@@ -42,26 +43,25 @@ public class PostDTO {
         this.content = content;
     }
 
-    private String content;
 
     public static class Builder {
         private static PostDTO postDTO = new PostDTO();
 
-        public PostDTO.Builder id(Long id) {
+        public Builder id(Long id) {
             postDTO.id = id;
             return this;
         }
 
-        public PostDTO.Builder idOwner(Long idOwner) {
+        public Builder idOwner(Long idOwner) {
             postDTO.idOwner = idOwner;
             return this;
         }
-        public PostDTO.Builder title(String title) {
+        public Builder title(String title) {
             postDTO.title = title;
             return this;
         }
 
-        public PostDTO.Builder content(String content) {
+        public Builder content(String content) {
             postDTO.content = content;
             return this;
         }
