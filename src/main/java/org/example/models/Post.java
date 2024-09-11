@@ -2,9 +2,8 @@ package org.example.models;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "posts.json") // Укажите имя таблицы, если необходимо
+@Table(name = "posts") // Укажите имя таблицы, если необходимо
 public class Post {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
