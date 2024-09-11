@@ -11,6 +11,6 @@ public interface PostElasticRepository extends ElasticsearchRepository<PostElast
 //    List<PostElastic> findByTitleContaining(String title); // надо сдлелать pagebale
 //    List<PostElastic> findByContentContaining(String content); //как обьединить
     Page<PostElastic> findByTitleContainingOrContentContaining(String title, String content, Pageable pageable);
-    //Page<PostElastic> findByTitleContaining(String title, Pageable pageable);
+//    Page<PostElastic> findByTitleContaining(String title, Pageable pageable);
 
 }
