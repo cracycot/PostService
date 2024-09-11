@@ -13,6 +13,15 @@ public class PostElastic {
     private String title;
     @Field(type = FieldType.Text, name = "content")
     private String content;
+    private Long idOwner;
+
+    public Long getIdOwner() {
+        return idOwner;
+    }
+
+    public void setIdOwner(Long ownerId) {
+        this.idOwner = ownerId;
+    }
 
     @Override
     public String toString() {
@@ -57,6 +66,11 @@ public class PostElastic {
 
         public Builder title(String title) {
             post.title = title;
+            return this;
+        }
+
+        public Builder idOwner(Long idOwner) {
+            post.idOwner = idOwner;
             return this;
         }
 

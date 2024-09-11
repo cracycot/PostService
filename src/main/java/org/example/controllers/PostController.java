@@ -3,6 +3,7 @@ package org.example.controllers;
 import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.models.PostElastic;
+import org.example.pagination.PaginatedResponse;
 import org.example.services.KafkaConsumer;
 import org.example.services.PostElasticService;
 import org.example.services.PostService;
@@ -16,8 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -51,9 +53,8 @@ public class PostController {
     @PostMapping("/create")
     public  ResponseEntity<?> createPost(@RequestBody PostDTO postDTO) {
         try {
-            postService.createPost(postService.fromPostDTOToPost(postDTO));
-            PostElastic postElastic = postElasticService.fromPostDTOToPostElastic(postDTO);
-            postElasticService.createPostElastic(postElastic);
+            System.out.println(postDTO.getContent());
+            postElasticService.createPostElastic(postElasticService.fromPostDTOToPostElastic(postDTO));
             postService.createPost(postService.fromPostDTOToPost(postDTO));
             return ResponseEntity.ok().body("Пост сохранен");
         }  catch (Exception e) {
@@ -64,23 +65,48 @@ public class PostController {
     }
 //    @RequestParam(defaultValue = "0") int page,
 //    @RequestParam(defaultValue = "10") int size
+//    @GetMapping("/search")
+//    public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
+//                                       @RequestParam(name = "page", defaultValue = "0") int page,
+//                                       @RequestParam(name = "size", defaultValue = "10") int size) {
+//        try {
+//            Pageable pageable = PageRequest.of(page, size);
+//            Page<PostElastic> postElasticPage = postElasticService.searchByPattern(pattern, pageable);
+//
+//            List<PostDTO> postDTOList = postElasticPage.getContent().stream()// здесь бага
+//                    .map(postElasticService::fromPostElasticToPostDTO)
+//                    .collect(Collectors.toList());
+//            for (PostElastic postDTO : postElasticPage.getContent()) {
+//                System.out.println(postElasticService.fromPostElasticToPostDTO(postDTO).getContent());
+//            }
+//            for (PostDTO postDTO : postDTOList) {
+//                System.out.println(postDTO.getContent());
+//            }
+//            Page<PostDTO> postDTOS = new PageImpl<>(postDTOList, pageable, postElasticPage.getTotalElements());
+//            return ResponseEntity.ok().body(postDTOS);
+//        } catch (Exception e) {
+//            log.error("Ошибка при поиске постов", e);
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
+//        }
+//    }
+
     @GetMapping("/search")
     public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
-                                       @RequestParam(name = "page", defaultValue = "0") int page,
-                                       @RequestParam(name = "size", defaultValue = "10") int size) {
-        try {
-            Pageable pageable = PageRequest.of(page, size);
-            Page<PostElastic> postElasticArrayList = postElasticService.searchByPattern(pattern, pageable);
-            ArrayList<PostDTO> postDTOS = new ArrayList<>();
-            for (PostElastic postElastic: postElasticArrayList) {
-                postDTOS.add(postElasticService.fromPostElasticToPostDTO(postElastic));
-                System.out.println(postElastic.getContent());
-            }
-            return ResponseEntity.ok().body(postDTOS);
-        } catch (Exception e) {
-            log.error("Ошибка при поиске постов", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
-        }
+                                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                @RequestParam(name = "size", defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostElastic> postElasticPage = postElasticService.searchByPattern(pattern, pageable);
+
+        // Преобразование содержимого из PostElastic в PostDTO
+//        List<PostDTO> postDTOList = postElasticPage.getContent().stream()
+//                .map(postElasticService::fromPostElasticToPostDTO)
+//                .collect(Collectors.toList());
+
+        //PaginatedResponse<PostDTO> paginatedResponse = postElasticService.convertToPaginatedResponse(postElasticPage);
+
+        // Преобразование Page<PostDTO> в PagedModel
+        Page<PostDTO> postDTOS = postElasticService.convertToPagePostDTO(postElasticPage);
+        return ResponseEntity.ok().body(postElasticPage); // костыль
     }
 
     @GetMapping("/delete")
