@@ -2,7 +2,6 @@ package org.example.services;
 
 import org.example.DTO.PostDTO;
 import org.example.models.PostElastic;
-import org.example.pagination.PaginatedResponse;
 import org.example.repositories.PostElasticRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
