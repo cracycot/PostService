@@ -5,8 +5,9 @@ import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.repositories.PostRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Optional;
@@ -14,13 +15,32 @@ import java.util.Set;
 
 @Service
 public class PostService {
+    @Autowired
+    private RedisTemplate<String, Post> redisTemplate;
+
+    private static final String POST_KEY_PREFIX = "post:";
     PostRepository postRepository;
 
     public Optional<Post> getPostById(Long id) {
-        return postRepository.findById(id);
+        String redisKey = POST_KEY_PREFIX + id;
+        Post post = redisTemplate.opsForValue().get(redisKey);
+
+        if (post != null) {
+            return Optional.of(post);
+        }
+
+        // Если поста нет в Redis, возьмем его из БД (добавить логику обращения к БД)
+        Optional<Post> postFromDb = postRepository.findById(id);
+
+        // Сохраним пост в Redis на 10 минут
+        postFromDb.ifPresent(value -> redisTemplate.opsForValue().set(redisKey, value, 10, TimeUnit.MINUTES));
+
+        return postFromDb;
     }
 
     public void createPost(Post post) {
+        String redisKey = POST_KEY_PREFIX + post.getId();
+        redisTemplate.opsForValue().set(redisKey, post, 10, TimeUnit.MINUTES);
         postRepository.save(post);
     }
 
@@ -31,6 +51,8 @@ public class PostService {
     public void deletePost(Long id) {
         Optional<Post> postOptional = postRepository.findById(id);
         if (postOptional.isPresent()) {
+            String redisKey = POST_KEY_PREFIX + id;
+            redisTemplate.delete(redisKey);
             Post post = postOptional.get();
             postRepository.delete(post);
         } else {

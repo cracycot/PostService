@@ -3,7 +3,6 @@ package org.example.controllers;
 import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.models.PostElastic;
-import org.example.pagination.PaginatedResponse;
 import org.example.services.KafkaConsumer;
 import org.example.services.PostElasticService;
 import org.example.services.PostService;
@@ -21,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-
+// необходимо id не руками передавать
 @RestController
 @RequestMapping("/posts")
 public class PostController {
@@ -33,7 +32,7 @@ public class PostController {
     KafkaConsumer kafkaConsumer;
 
     @GetMapping("/get")
-    public ResponseEntity<?> getPostById(@RequestParam Long id) {
+    public ResponseEntity<?> getPostById(@RequestParam("id") Long id) {
         try {
             Optional<Post> postOptional = postService.getPostById(id);
             if (postOptional.isEmpty()) {
@@ -63,32 +62,6 @@ public class PostController {
         }
 
     }
-//    @RequestParam(defaultValue = "0") int page,
-//    @RequestParam(defaultValue = "10") int size
-//    @GetMapping("/search")
-//    public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
-//                                       @RequestParam(name = "page", defaultValue = "0") int page,
-//                                       @RequestParam(name = "size", defaultValue = "10") int size) {
-//        try {
-//            Pageable pageable = PageRequest.of(page, size);
-//            Page<PostElastic> postElasticPage = postElasticService.searchByPattern(pattern, pageable);
-//
-//            List<PostDTO> postDTOList = postElasticPage.getContent().stream()// здесь бага
-//                    .map(postElasticService::fromPostElasticToPostDTO)
-//                    .collect(Collectors.toList());
-//            for (PostElastic postDTO : postElasticPage.getContent()) {
-//                System.out.println(postElasticService.fromPostElasticToPostDTO(postDTO).getContent());
-//            }
-//            for (PostDTO postDTO : postDTOList) {
-//                System.out.println(postDTO.getContent());
-//            }
-//            Page<PostDTO> postDTOS = new PageImpl<>(postDTOList, pageable, postElasticPage.getTotalElements());
-//            return ResponseEntity.ok().body(postDTOS);
-//        } catch (Exception e) {
-//            log.error("Ошибка при поиске постов", e);
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
-//        }
-//    }
 
     @GetMapping("/search")
     public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
