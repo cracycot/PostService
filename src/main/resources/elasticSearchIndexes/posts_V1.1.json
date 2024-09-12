@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "analysis": {
+      "tokenizer": {
+        "standard_tokenizer": {
+          "type": "standard"
+        }
+      },
+      "filter": {
+        "russian_stemmer": {
+          "type": "stemmer",
+          "language": "russian"
+        },
+        "edge_ngram_filter": {
+          "type": "edge_ngram",
+          "min_gram": 3,
+          "max_gram": 20
+        }
+      },
+      "analyzer": {
+        "russian_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "russian_stemmer",
+            "edge_ngram_filter"
+          ]
+        }
+      }
+
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "long"
+      },
+      "ownerId": {
+        "type": "long"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "russian_analyzer",
+        "search_analyzer": "standard"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "russian_analyzer",
+        "search_analyzer": "standard"
+      }
+    }
+  }
+}
