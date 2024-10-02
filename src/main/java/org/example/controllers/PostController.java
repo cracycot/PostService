@@ -13,10 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 // необходимо id не руками передавать
 @RestController
@@ -83,8 +80,13 @@ public class PostController {
     @GetMapping("/delete")
     public ResponseEntity<?> deletePost(@RequestParam Long id) {
         try {
+            Optional<Post> post = postService.getPostById(id);
+            if (post.isEmpty()) {
+                throw new Exception("Пост не найден");
+            }
             postService.deletePost(id);
             postElasticService.deletePost(id);
+            kafkaProducer.sendMessage(MessageBuilder.madeMessageRemovePointsForUser(post.get().getId(), 1));
             return ResponseEntity.ok().body("Пост удален");
         } catch (Exception e) {
             log.error("Ошибка при получении владельца", e);
