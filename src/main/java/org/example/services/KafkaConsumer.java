@@ -11,5 +11,4 @@ public class KafkaConsumer {
     public void listen(ConsumerRecord<Long, String> record) {
         System.out.println("recieved messeg" + record.value());
     }
-
 }

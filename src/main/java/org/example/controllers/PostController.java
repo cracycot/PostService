@@ -3,9 +3,7 @@ package org.example.controllers;
 import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.models.PostElastic;
-import org.example.services.KafkaConsumer;
-import org.example.services.PostElasticService;
-import org.example.services.PostService;
+import org.example.services.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +28,7 @@ public class PostController {
     PostElasticService postElasticService;
 
     KafkaConsumer kafkaConsumer;
+    KafkaProducer kafkaProducer;
 
     @GetMapping("/get")
     public ResponseEntity<?> getPostById(@RequestParam("id") Long id) {
@@ -45,18 +44,17 @@ public class PostController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
         }
     }
-    @GetMapping("")
-    public ResponseEntity<?> check() {
-        return ResponseEntity.ok().body("доступ получен");
-    }
+
+
     @PostMapping("/create")
-    public  ResponseEntity<?> createPost(@RequestBody PostDTO postDTO) {
+    public ResponseEntity<?> createPost(@RequestBody PostDTO postDTO) {
         try {
             System.out.println(postDTO.getContent());
             postElasticService.createPostElastic(postElasticService.fromPostDTOToPostElastic(postDTO));
             postService.createPost(postService.fromPostDTOToPost(postDTO));
+            kafkaProducer.sendMessage(MessageBuilder.madeMessageAddPointsForUser(postDTO.getIdOwner(), 1));
             return ResponseEntity.ok().body("Пост сохранен");
-        }  catch (Exception e) {
+        } catch (Exception e) {
             log.error("Ошибка при получении владельца", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
         }
@@ -65,8 +63,8 @@ public class PostController {
 
     @GetMapping("/search")
     public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
-                                                                @RequestParam(name = "page", defaultValue = "0") int page,
-                                                                @RequestParam(name = "size", defaultValue = "10") int size) {
+                                       @RequestParam(name = "page", defaultValue = "0") int page,
+                                       @RequestParam(name = "size", defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostElastic> postElasticPage = postElasticService.searchByPattern(pattern, pageable);
 
@@ -83,32 +81,33 @@ public class PostController {
     }
 
     @GetMapping("/delete")
-    public ResponseEntity<?>  deletePost(@RequestParam Long id) {
+    public ResponseEntity<?> deletePost(@RequestParam Long id) {
         try {
             postService.deletePost(id);
             postElasticService.deletePost(id);
             return ResponseEntity.ok().body("Пост удален");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Ошибка при получении владельца", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
         }
     }
 
     @PutMapping("/update")
-    public ResponseEntity<?>  updatePost(@RequestBody PostDTO postDTO) {
+    public ResponseEntity<?> updatePost(@RequestBody PostDTO postDTO) {
         try {
             postService.updatePost(postService.fromPostDTOToPost(postDTO));
             postElasticService.updatePostElastic(postElasticService.fromPostDTOToPostElastic(postDTO));
             return ResponseEntity.ok().body("Пост сохранен");
-        }  catch (Exception e) {
+        } catch (Exception e) {
             log.error("Ошибка при получении владельца", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Произошла ошибка");
         }
     }
 
     @Autowired
-    public void setKafkaConsumer(KafkaConsumer kafkaConsumer) { this.kafkaConsumer = kafkaConsumer;}
+    public void setKafkaConsumer(KafkaConsumer kafkaConsumer) {
+        this.kafkaConsumer = kafkaConsumer;
+    }
 
     @Autowired
     public void setPostService(PostService postService) {
@@ -116,5 +115,12 @@ public class PostController {
     }
 
     @Autowired
-    public void setPostElasticService(PostElasticService postElasticService) {this.postElasticService = postElasticService;}
+    public void setPostElasticService(PostElasticService postElasticService) {
+        this.postElasticService = postElasticService;
+    }
+
+    @Autowired
+    public void setKafkaProducer(KafkaProducer kafkaProducer) {
+        this.kafkaProducer = kafkaProducer;
+    }
 }
