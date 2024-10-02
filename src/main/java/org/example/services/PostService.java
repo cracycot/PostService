@@ -1,6 +1,5 @@
 package org.example.services;
 
-import org.apache.kafka.common.protocol.types.Field;
 import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.repositories.PostRepository;
@@ -9,9 +8,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 public class PostService {
@@ -69,11 +66,6 @@ public class PostService {
     }
 
     public Post fromPostDTOToPost(PostDTO postDTO){
-//        Optional<Post> postOptional = postRepository.findById(postDTO.getIdOwner());
-//        if (!postOptional.isPresent()) {
-//            throw new RuntimeException("Владелец не найден!");
-//        }
-//        Post post = postOptional.get();
         return new Post.Builder()
                 .id(postDTO.getId())
                 .idOwner(postDTO.getIdOwner())
@@ -82,12 +74,7 @@ public class PostService {
                 .build();
     }
 
-    public ArrayList<PostDTO> findByName(String pattern) {
-        return new ArrayList<PostDTO>();
-    }
-
     @Autowired
-//    @Qualifier("PostRepository")
     // @Qualifier|("PostDAO") //уточненине для спринга если наследуемый интерфейс имеет две реализации в бинах
     public void setPostRepository(PostRepository postRepository ) {
         this.postRepository = postRepository;
