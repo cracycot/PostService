@@ -1,8 +1,9 @@
 package org.example.DTO;
 
-import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
 
 public class PostDTO {
     private Long id;
@@ -10,6 +11,16 @@ public class PostDTO {
     private Long idOwner;
     private String title;
     private String content;
+
+    public List<MultipartFile> getPhotos() {
+        return photos;
+    }
+
+    public void setPhotos(List<MultipartFile> photos) {
+        this.photos = photos;
+    }
+
+    private List<MultipartFile> photos;
 
     public Long getId() {
         return id;
@@ -63,6 +74,11 @@ public class PostDTO {
 
         public Builder content(String content) {
             postDTO.content = content;
+            return this;
+        }
+
+        public Builder photos(List<MultipartFile> photos) {
+            postDTO.photos = photos;
             return this;
         }
 
