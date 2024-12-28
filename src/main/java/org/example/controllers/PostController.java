@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.Optional;
 
 // необходимо id не руками передавать
@@ -46,9 +47,8 @@ public class PostController {
     @PostMapping("/create")
     public ResponseEntity<?> createPost(@RequestBody PostDTO postDTO) {
         try {
-            System.out.println(postDTO.getContent());
             postElasticService.createPostElastic(postElasticService.fromPostDTOToPostElastic(postDTO));
-            postService.createPost(postService.fromPostDTOToPost(postDTO));
+            postService.createPost(postDTO);
             kafkaProducer.sendMessage(MessageBuilder.madeMessageAddPointsForUser(postDTO.getIdOwner(), 1));
             return ResponseEntity.ok().body("Пост сохранен");
         } catch (Exception e) {
@@ -58,10 +58,11 @@ public class PostController {
 
     }
 
+    // TODO: Выполнить глубокий рефакторинг метода
     @GetMapping("/search")
-    public ResponseEntity<?> findPosts(@RequestParam("pattern") String pattern,
-                                       @RequestParam(name = "page", defaultValue = "0") int page,
-                                       @RequestParam(name = "size", defaultValue = "10") int size) {
+    public ResponseEntity<Page<PostElastic>> findPosts(@RequestParam(value = "pattern", required = false) String pattern,
+                                                   @RequestParam(name = "page", defaultValue = "0") int page,
+                                                   @RequestParam(name = "size", defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostElastic> postElasticPage = postElasticService.searchByPattern(pattern, pageable);
 
@@ -78,7 +79,7 @@ public class PostController {
     }
 
     @GetMapping("/delete")
-    public ResponseEntity<?> deletePost(@RequestParam Long id) {
+    public ResponseEntity<String> deletePost(@RequestParam Long id) {
         try {
             Optional<Post> post = postService.getPostById(id);
             if (post.isEmpty()) {
@@ -95,9 +96,9 @@ public class PostController {
     }
 
     @PutMapping("/update")
-    public ResponseEntity<?> updatePost(@RequestBody PostDTO postDTO) {
+    public ResponseEntity<String> updatePost(@RequestBody PostDTO postDTO) {
         try {
-            postService.updatePost(postService.fromPostDTOToPost(postDTO));
+            postService.updatePost(postDTO);
             postElasticService.updatePostElastic(postElasticService.fromPostDTOToPostElastic(postDTO));
             return ResponseEntity.ok().body("Пост сохранен");
         } catch (Exception e) {

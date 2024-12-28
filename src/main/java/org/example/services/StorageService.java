@@ -153,7 +153,6 @@ public class StorageService {
         return UUID.randomUUID().toString() + "_" + originalFilename.replaceAll("\\s+", "_");
     }
 
-
     /**
      * Вспомогательный метод для извлечения ключа объекта из полного URL.
      *
