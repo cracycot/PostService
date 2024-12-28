@@ -1,8 +1,11 @@
 package org.example.models;
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
-@Table(name = "posts") // Укажите имя таблицы, если необходимо
+@Table(name = "posts")
 public class Post {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -11,9 +14,11 @@ public class Post {
     private Long idOwner;
 
     private String title;
-    private String content;
 
-    // Конструкторы, геттеры и сеттеры
+    private String content;
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Image> images = new ArrayList<>();
+
     public Post() {}
 
     public Long getIdOwner() {
@@ -48,6 +53,14 @@ public class Post {
         this.content = content;
     }
 
+    public void setImages(List<Image> images) {
+        this.images = images;
+    }
+
+    public List<Image> getImages() {
+        return images;
+    }
+
     public static class Builder {
         private static Post post = new Post();
 
@@ -70,8 +83,24 @@ public class Post {
             return this;
         }
 
+        public Builder images(List<Image> images) {
+            post.images = images;
+            return this;
+        }
+
         public Post build() {
             return post;
         }
+    }
+
+    /**
+     * Метод для получения всех PhotosUrls
+     */
+    public List<String> getPhotosUrls() {
+        List<String> photosUrls = new ArrayList<>();
+        for (Image image : images) {
+            photosUrls.add(image.getS3url());
+        }
+        return photosUrls;
     }
 }
