@@ -1,19 +1,29 @@
+package unit;
+
 import org.example.DTO.PostDTO;
 import org.example.models.Post;
 import org.example.repositories.PostRepository;
+import org.example.services.PostService;
+import org.example.services.StorageService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.Optional;
 
+
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
-
     @Mock
     private RedisTemplate<String, Post> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, Post> valueOperations;
 
     @Mock
     private PostRepository postRepository;
@@ -26,6 +36,8 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        Mockito.when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
         // Дополнительная настройка перед каждым тестом (если нужна).
     }
 
@@ -48,11 +60,11 @@ class PostServiceTest {
         Optional<Post> result = postService.getPostById(testId);
 
         // Проверяем, что пост вернулся
-        org.junit.jupiter.api.Assertions.assertTrue(
+        Assertions.assertTrue(
                 result.isPresent(),
                 "Результат должен содержать Post"
         );
-        org.junit.jupiter.api.Assertions.assertEquals(
+        Assertions.assertEquals(
                 "Test title",
                 result.get().getTitle()
         );
