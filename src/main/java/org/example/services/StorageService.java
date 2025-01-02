@@ -104,6 +104,7 @@ public class StorageService {
                 metadata.setContentLength(photo.getSize());
                 s3Client.putObject(new PutObjectRequest(bucketName, fileName, photo.getInputStream(), metadata)
                         .withCannedAcl(CannedAccessControlList.Private));
+                urls.add(fileName);
             }
             catch (IOException e) {
                 throw new RuntimeException("Не удалось загрузить фотографию: " + photo.getOriginalFilename(), e);
@@ -172,7 +173,7 @@ public class StorageService {
         }
     }
 
-    StorageService(@Autowired S3Config s3Config, @Autowired AmazonS3 amazonS3) {
+    public StorageService(@Autowired S3Config s3Config, @Autowired AmazonS3 amazonS3) {
         this.s3Config = s3Config;
         this.s3Client = amazonS3;
     }
