@@ -5,20 +5,14 @@ import org.example.models.PostElastic;
 import org.example.repositories.PostElasticRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class PostElasticService {
     private PostElasticRepository postElasticRepository;
-
-    private ElasticsearchOperations elasticsearchOperations;
 
     public Page<PostElastic> searchByPattern(String pattern, Pageable pageable) {
         return postElasticRepository.findByTitleContainingOrContentContaining(pattern, pattern, pageable);
@@ -65,21 +59,6 @@ public class PostElasticService {
                 ;
     }
 
-//    public PaginatedResponse<PostDTO> convertToPaginatedResponse(Page<PostElastic> page) {
-//        List<PostDTO> postDTOs = page.stream()
-//                .map(this::fromPostElasticToPostDTO)
-//                .collect(Collectors.toList());
-//        for (PostElastic postElastic : page) {
-//            System.out.println(postElastic.getContent());
-//        }
-//        return new PaginatedResponse<>(
-//                postDTOs,
-//                page.getNumber(),
-//                page.getSize(),
-//                page.getTotalElements(),
-//                page.getTotalPages()
-//        );
-//    }
     public Page<PostDTO> convertToPagePostDTO(Page<PostElastic> postElasticPage) {
         return postElasticPage.map(postElastic -> {
             // Преобразование PostElastic в PostDTO
@@ -95,10 +74,5 @@ public class PostElasticService {
     @Autowired
     private void setPostElasticRepository(PostElasticRepository postElasticRepository) {
         this.postElasticRepository = postElasticRepository;
-    }
-
-    @Autowired
-    private void setElasticsearchOperations(ElasticsearchOperations elasticsearchOperations) {
-        this.elasticsearchOperations = elasticsearchOperations;
     }
 }
