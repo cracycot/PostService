@@ -3,6 +3,8 @@ package org.example.utils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.JpaVendorAdapter;
@@ -14,6 +16,8 @@ import javax.sql.DataSource;
 import java.util.Properties;
 
 @Configuration
+@EnableJpaRepositories(basePackages = "org.example.repositories.jpa")
+@EnableElasticsearchRepositories(basePackages = "org.example.repositories.elastic")
 public class SpringConfig {
     @Bean
     public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
@@ -54,10 +58,9 @@ public class SpringConfig {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
 
         dataSource.setDriverClassName("org.postgresql.Driver");
-        dataSource.setUsername("kirilllesniak");
-        dataSource.setPassword("les2005");
-        dataSource.setUrl(
-                "jdbc:postgresql://localhost:5432/postgres?useUnicode=true&useSSL=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC");
+        dataSource.setUsername("root");
+        dataSource.setPassword("root");
+        dataSource.setUrl("jdbc:postgresql://localhost:5632/postdb");
         return dataSource;
     }
 }
