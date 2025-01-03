@@ -1,20 +1,26 @@
 package org.example.models;
 import jakarta.persistence.*;
+import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "posts")
+@Document(indexName = "posts")
 public class Post {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "owner_id")
     private Long idOwner;
 
     private String title;
 
+    @Field(type = FieldType.Text, name = "content")
     private String content;
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Image> images = new ArrayList<>();
@@ -102,5 +108,14 @@ public class Post {
             photosUrls.add(image.getS3url());
         }
         return photosUrls;
+    }
+
+    @Override
+    public String toString() {
+        return "PostElastic{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", content='" + content + '\'' +
+                '}';
     }
 }
