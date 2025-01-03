@@ -16,7 +16,6 @@ public class S3Config {
     private String accessKey;
     @Value("${s3.secretkey}")
     private String secretKey;
-    private final String endpointUrl = "https://s3.selcdn.ru";
 
     @Bean
     public AmazonS3 s3Client() {
@@ -24,10 +23,12 @@ public class S3Config {
 
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
+        clientConfig.setSignerOverride("S3SignerType");
 
+        String endpointUrl = "storage.yandexcloud.net";
         return AmazonS3ClientBuilder.standard()
                 .withEndpointConfiguration(
-                        new AmazonS3ClientBuilder.EndpointConfiguration(endpointUrl, "ru-1")
+                        new AmazonS3ClientBuilder.EndpointConfiguration(endpointUrl, "ru-central1")
                 )
                 .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
                 .withPathStyleAccessEnabled(true)
