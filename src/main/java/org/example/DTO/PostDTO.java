@@ -1,9 +1,6 @@
 package org.example.DTO;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import java.util.List;
-
 
 public class PostDTO {
     private Long id;
@@ -12,15 +9,15 @@ public class PostDTO {
     private String title;
     private String content;
 
-    public List<MultipartFile> getPhotos() {
-        return photos;
+    private List<String> urls;
+
+    public List<String> getUrls() {
+        return urls;
     }
 
-    public void setPhotos(List<MultipartFile> photos) {
-        this.photos = photos;
+    public void setUrls(List<String> urls) {
+        this.urls = urls;
     }
-
-    private List<MultipartFile> photos;
 
     public Long getId() {
         return id;
@@ -53,10 +50,8 @@ public class PostDTO {
     public void setContent(String content) {
         this.content = content;
     }
-
-
     public static class Builder {
-        private static PostDTO postDTO = new PostDTO();
+        private final PostDTO postDTO = new PostDTO();
 
         public Builder id(Long id) {
             postDTO.id = id;
@@ -67,6 +62,7 @@ public class PostDTO {
             postDTO.idOwner = idOwner;
             return this;
         }
+
         public Builder title(String title) {
             postDTO.title = title;
             return this;
@@ -77,8 +73,8 @@ public class PostDTO {
             return this;
         }
 
-        public Builder photos(List<MultipartFile> photos) {
-            postDTO.photos = photos;
+        public Builder photos(List<String> urls) {
+            postDTO.urls = urls;
             return this;
         }
 
