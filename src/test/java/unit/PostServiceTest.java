@@ -1,10 +1,11 @@
 package unit;
 
 import org.example.DTO.PostDTO;
+import org.example.models.Image;
 import org.example.models.Post;
-import org.example.repositories.PostRepository;
+import org.example.repositories.elastic.PostElasticRepository;
+import org.example.repositories.jpa.PostJpaRepository;
 import org.example.services.PostService;
-import org.example.services.StorageService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,31 +15,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Optional;
-
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
+
+    // Мокируем RedisTemplate для PostDTO
     @Mock
-    private RedisTemplate<String, Post> redisTemplate;
+    private RedisTemplate<String, PostDTO> postDTORedisTemplate;
+
+    // Мокируем ValueOperations для PostDTO
+    @Mock
+    private ValueOperations<String, PostDTO> valueOperations;
 
     @Mock
-    private ValueOperations<String, Post> valueOperations;
+    private PostJpaRepository postRepository;
 
     @Mock
-    private PostRepository postRepository;
-
-    @Mock
-    private StorageService storageService;
+    private PostElasticRepository postElasticRepository;
 
     @InjectMocks
     private PostService postService;
 
     @BeforeEach
     void setUp() {
-        Mockito.when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-
-        // Дополнительная настройка перед каждым тестом (если нужна).
+        // Настраиваем мок RedisTemplate для возврата мок ValueOperations
+        Mockito.when(postDTORedisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
@@ -47,51 +53,56 @@ class PostServiceTest {
         Post mockPost = new Post();
         mockPost.setId(testId);
         mockPost.setTitle("Test title");
+        mockPost.setIdOwner(100L);
+        mockPost.setContent("Test content");
 
-        // Имитируем, что в Redis этого поста нет.
-        Mockito.when(redisTemplate.opsForValue().get("post:" + testId))
+        // Инициализируем изображения
+        Image image1 = new Image();
+        image1.setS3url("url1");
+        Image image2 = new Image();
+        image2.setS3url("url2");
+        mockPost.setImages(Arrays.asList(image1, image2));
+
+        // Имитация отсутствия поста в Redis
+        Mockito.when(valueOperations.get("post:" + testId))
                 .thenReturn(null);
 
-        // А в БД — есть.
-        Mockito.when(postRepository.findById(testId))
+        // Имитация наличия поста в БД
+        Mockito.when(postRepository.findByIdWithImages(testId))
                 .thenReturn(Optional.of(mockPost));
 
         // Вызываем тестируемый метод
-        Optional<Post> result = postService.getPostById(testId);
+        Optional<PostDTO> result = postService.getPostById(testId);
 
-        // Проверяем, что пост вернулся
-        Assertions.assertTrue(
-                result.isPresent(),
-                "Результат должен содержать Post"
-        );
-        Assertions.assertEquals(
-                "Test title",
-                result.get().getTitle()
-        );
+        // Проверяем, что пост найден
+        Assertions.assertTrue(result.isPresent(), "Результат должен содержать Post");
+        Assertions.assertEquals("Test title", result.get().getTitle());
+        Assertions.assertEquals(100L, result.get().getIdOwner());
+        Assertions.assertEquals("Test content", result.get().getContent());
+        Assertions.assertEquals(Arrays.asList("url1", "url2"), result.get().getUrls());
 
-        // Проверяем, что пост записался в Redis
-        Mockito.verify(redisTemplate.opsForValue(), Mockito.times(1))
+        // Проверяем, что PostDTO был сохранён в Redis
+        Mockito.verify(valueOperations, Mockito.times(1))
                 .set(
                         ArgumentMatchers.eq("post:" + testId),
-                        ArgumentMatchers.eq(mockPost),
-                        ArgumentMatchers.anyLong(),
-                        ArgumentMatchers.any()
+                        ArgumentMatchers.any(PostDTO.class), // Ожидаем PostDTO, а не Post
+                        ArgumentMatchers.eq(10L),
+                        ArgumentMatchers.eq(TimeUnit.MINUTES)
                 );
     }
 
     @Test
     void testCreatePost() {
-        PostDTO postDTO = new PostDTO();
-        postDTO.setId(10L);
-        postDTO.setTitle("New Post");
-        postDTO.setContent("Test content");
+        // Используем Builder для создания PostDTO
+        PostDTO postDTO = new PostDTO.Builder()
+                .id(10L)
+                .idOwner(200L)
+                .title("New Post")
+                .content("Test content")
+                .photos(Arrays.asList("url1", "url2")) // Инициализируем urls
+                .build();
 
-        // Мокаем сохранение фото (не ходим в реальный S3)
-        Mockito.doReturn(null)
-                .when(storageService)
-                .savePhotos(postDTO.getPhotos());
-
-        // При сохранении в репозиторий возвращаем объект с тем же ID
+        // Имитация сохранения поста в репозиторий
         Mockito.when(postRepository.save(ArgumentMatchers.any(Post.class)))
                 .thenAnswer(invocation -> {
                     Post savedPost = invocation.getArgument(0);
@@ -102,17 +113,27 @@ class PostServiceTest {
         // Вызываем логику создания поста
         postService.createPost(postDTO);
 
-        // Проверяем, что метод save() в репозитории вызывался 1 раз
+        // Проверяем, что метод save() в репозитории был вызван один раз
         Mockito.verify(postRepository, Mockito.times(1))
                 .save(ArgumentMatchers.any(Post.class));
 
-        // Проверяем, что объект также положился в Redis
-        Mockito.verify(redisTemplate.opsForValue(), Mockito.times(1))
+        // Захватываем аргументы, переданные в метод set Redis
+        ArgumentCaptor<PostDTO> postDTOCaptor = ArgumentCaptor.forClass(PostDTO.class);
+
+        Mockito.verify(valueOperations, Mockito.times(1))
                 .set(
                         ArgumentMatchers.eq("post:" + postDTO.getId()),
-                        ArgumentMatchers.any(Post.class),
-                        ArgumentMatchers.anyLong(),
-                        ArgumentMatchers.any()
+                        postDTOCaptor.capture(),
+                        ArgumentMatchers.eq(10L),
+                        ArgumentMatchers.eq(TimeUnit.MINUTES)
                 );
+
+        // Проверяем содержимое сохранённого PostDTO
+        PostDTO cachedPostDTO = postDTOCaptor.getValue();
+        Assertions.assertEquals(postDTO.getId(), cachedPostDTO.getId());
+        Assertions.assertEquals(postDTO.getIdOwner(), cachedPostDTO.getIdOwner());
+        Assertions.assertEquals(postDTO.getTitle(), cachedPostDTO.getTitle());
+        Assertions.assertEquals(postDTO.getContent(), cachedPostDTO.getContent());
+        Assertions.assertEquals(new HashSet<>(postDTO.getUrls()), new HashSet<>(cachedPostDTO.getUrls()));
     }
 }
