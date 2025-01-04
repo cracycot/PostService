@@ -1,12 +1,19 @@
 package org.example.services;
 
 import org.example.DTO.PostDTO;
+import org.example.DTO.PostElasticDTO;
 import org.example.models.Image;
 import org.example.models.Post;
-import org.example.repositories.PostRepository;
+import org.example.repositories.elastic.PostElasticRepository;
+import org.example.repositories.jpa.PostJpaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,108 +22,184 @@ import java.util.Optional;
 
 @Service
 public class PostService {
-    private final RedisTemplate<String, Post> redisTemplate;
-    private final StorageService storageService;
-    private final PostRepository postRepository;
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
     private static final String POST_KEY_PREFIX = "post:";
 
-    public Optional<Post> getPostById(Long id) {
-        String redisKey = POST_KEY_PREFIX + id;
-        Post post = redisTemplate.opsForValue().get(redisKey);
+    private final RedisTemplate<String, PostDTO> postDTORedisTemplate;
+    private final PostElasticRepository postElasticRepository;
+    private final PostJpaRepository postRepository;
 
-        if (post != null) {
-            return Optional.of(post);
-        }
-
-        Optional<Post> postFromDb = postRepository.findById(id);
-
-        // Сохраним пост в Redis на 10 минут
-        postFromDb.ifPresent(value ->
-                redisTemplate.opsForValue().set(redisKey, value, 10, TimeUnit.MINUTES));
-
-        return postFromDb;
+    @Autowired
+    public PostService(PostJpaRepository postRepository,
+                       PostElasticRepository postElasticRepository,
+                       RedisTemplate<String, PostDTO> postDTORedisTemplate) {
+        this.postDTORedisTemplate = postDTORedisTemplate;
+        this.postRepository = postRepository;
+        this.postElasticRepository = postElasticRepository;
     }
 
-    public void createPost(PostDTO post) {
-        String redisKey = POST_KEY_PREFIX + post.getId();
-        storageService.savePhotos(post.getPhotos());
-        redisTemplate.opsForValue().set(redisKey, this.fromPostDTOToPost(post), 10, TimeUnit.MINUTES);
-        postRepository.save(this.fromPostDTOToPost(post));
+
+    @Transactional(readOnly = true)
+    public Optional<PostDTO> getPostById(Long id) {
+        String redisKey = getRedisKey(id);
+        PostDTO cachedPostDTO = postDTORedisTemplate.opsForValue().get(redisKey);
+        if (cachedPostDTO != null) {
+            log.info("Пост найден в кэше: {}", id);
+            return Optional.of(cachedPostDTO);
+        }
+
+        // Получение Post с инициализированными изображениями
+        Optional<Post> postOptional = postRepository.findByIdWithImages(id);
+        if (postOptional.isPresent()) {
+            Post post = postOptional.get();
+            PostDTO postDTO = fromPostToPostDTO(post);
+            // Кэширование PostDTO
+            postDTORedisTemplate.opsForValue().set(redisKey, postDTO, 10, TimeUnit.MINUTES);
+            log.info("Пост сохранён в кэше: {}", id);
+            return Optional.of(postDTO);
+        }
+
+        return Optional.empty();
+    }
+
+    public void createPost(PostDTO postDTO) {
+        Post postToSave = fromPostDTOToPost(postDTO, new ArrayList<>());
+        List<String> photoUrls = savePhotosAndLinkToPost(postDTO, postToSave);
+
+        savePostToDatabaseAndCache(postToSave);
+        savePostToElasticsearch(postToSave, photoUrls);
+
+        log.info("Пост создан: {}", postToSave.getId());
     }
 
     public void updatePost(PostDTO postDTO) {
-        Optional<Post> existingPostOptional = postRepository.findById(postDTO.getId());
-        if (existingPostOptional.isPresent()) {
-            Post existingPost = existingPostOptional.get();
+        Post existingPost = fetchPostByIdOrThrow(postDTO.getId());
+        updatePostFields(existingPost, postDTO);
 
-            if (postDTO.getPhotos() != null && !postDTO.getPhotos().isEmpty()) {
-                // Удаляем старые фотографии
-                List<String> oldPhotosUrls = existingPost.getPhotosUrls();
-                storageService.deletePhotos(oldPhotosUrls);
+        savePostToDatabaseAndCache(existingPost);
+        savePostToElasticsearch(existingPost, existingPost.getUrls());
 
-                // Сохраняем новые фотографии
-                List<String> newPhotosUrls = storageService.savePhotos(postDTO.getPhotos());
-                List<Image> newImages = new ArrayList<>();
-                for (String url : newPhotosUrls) {
-                    Image image = new Image();
-                    image.setPost(existingPost); // Устанавливаем связь с Post
-                    image.setS3url(url);         // Устанавливаем URL
-                    newImages.add(image);        // Добавляем Image в новый список
-                }
-                existingPost.setImages(newImages); // Обновляем список фотографий в Post
-            }
-
-            // Обновляем остальные поля
-            existingPost.setTitle(postDTO.getTitle());
-            existingPost.setContent(postDTO.getContent());
-
-            // Сохраняем обновленный пост в базе данных
-            postRepository.save(existingPost);
-
-            // Обновляем кеш в Redis
-            String redisKey = POST_KEY_PREFIX + postDTO.getId();
-            redisTemplate.opsForValue().set(redisKey, existingPost, 10, TimeUnit.MINUTES);
-        } else {
-            throw new RuntimeException("Post not found with id: " + postDTO.getId());
-        }
+        log.info("Пост обновлён: {}", existingPost.getId());
     }
 
     public void deletePost(Long id) {
-        Optional<Post> postOptional = postRepository.findById(id);
-        if (postOptional.isPresent()) {
-            String redisKey = POST_KEY_PREFIX + id;
-            redisTemplate.delete(redisKey);
-            Post post = postOptional.get();
-            storageService.deletePhotos(post.getPhotosUrls());
-            postRepository.delete(post);
-        } else {
-            throw new RuntimeException("Post not found with id: " + id);
+        Post post = fetchPostByIdOrThrow(id);
+
+        deletePostFromElasticsearch(id);
+        deletePostFromCache(id);
+        postRepository.delete(post);
+
+        log.info("Пост удалён: {}", id);
+    }
+
+    private void deletePostFromCache(Long id) {
+        String redisKey = getRedisKey(id);
+        postDTORedisTemplate.delete(redisKey);
+        log.info("Пост удалён из кэша: {}", id);
+    }
+
+    public Page<PostDTO> searchByPattern(String pattern, Pageable pageable) {
+        // Поиск в Elasticsearch
+        Page<PostElasticDTO> elasticResults = postElasticRepository.findByTitleContainingOrContentContaining(pattern, pattern, pageable);
+
+        // Преобразование результатов в PostDTO
+        return elasticResults.map(this::fromElasticDTOToPostDTO);
+    }
+
+    private void savePostToDatabaseAndCache(Post post) {
+        postRepository.save(post);
+        PostDTO postDTO = fromPostToPostDTO(post);
+        cachePostDTO(postDTO);
+    }
+
+    private void cachePostDTO(PostDTO postDTO) {
+        String redisKey = getRedisKey(postDTO.getId());
+        postDTORedisTemplate.opsForValue().set(redisKey, postDTO, 10, TimeUnit.MINUTES);
+        log.info("Пост закэширован: {}", postDTO.getId());
+    }
+
+    private String getRedisKey(Long id) {
+        return POST_KEY_PREFIX + id;
+    }
+
+
+    private void savePostToElasticsearch(Post post, List<String> photoUrls) {
+        PostElasticDTO elasticDTO = toElasticDTO(post, photoUrls);
+        postElasticRepository.save(elasticDTO);
+    }
+
+    private void updatePostFields(Post post, PostDTO postDTO) {
+        post.setTitle(postDTO.getTitle());
+        post.setContent(postDTO.getContent());
+        ArrayList<Image> images = new ArrayList<>();
+        for (String url : postDTO.getUrls()) {
+            Image image = new Image();
+            image.setS3url(url);
+            image.setPost(post);
+            images.add(image);
         }
+        post.setImages(images);
     }
 
-    public PostDTO fromPostToPostDTO(Post post) {
-        return new PostDTO.Builder()
-                .id(post.getId())
-                .idOwner(post.getIdOwner())
-                .title(post.getTitle())
-                .content(post.getContent())
-                .build();
+    private Post fetchPostByIdOrThrow(Long id) {
+        return postRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Post not found with id: " + id));
     }
 
-    public Post fromPostDTOToPost(PostDTO postDTO) {
+    private void deletePostFromElasticsearch(Long id) {
+        postElasticRepository.findById(Long.toString(id))
+                .ifPresent(postElasticRepository::delete);
+    }
+
+
+    private List<String> savePhotosAndLinkToPost(PostDTO postDTO, Post post) {
+        return postDTO.getUrls().parallelStream()
+                .map(url -> {
+                    Image image = new Image();
+                    image.setS3url(url);
+                    image.setPost(post);
+                    post.getImages().add(image);
+                    return url;
+                })
+                .toList();
+    }
+
+    private PostElasticDTO toElasticDTO(Post post, List<String> urls) {
+        PostElasticDTO dto = new PostElasticDTO();
+        dto.setId(Long.toString(post.getId()));
+        dto.setIdOwner(post.getIdOwner());
+        dto.setTitle(post.getTitle());
+        dto.setContent(post.getContent());
+        dto.setUrls(urls);
+        return dto;
+    }
+
+    private Post fromPostDTOToPost(PostDTO postDTO, List<Image> images) {
         return new Post.Builder()
-                .id(postDTO.getId())
                 .idOwner(postDTO.getIdOwner())
                 .title(postDTO.getTitle())
+                .images(images)
                 .content(postDTO.getContent())
                 .build();
     }
 
-    public PostService(@Autowired RedisTemplate<String, Post> redisTemplate,
-                       @Autowired PostRepository postRepository,
-                       @Autowired StorageService storageService) {
-        this.redisTemplate = redisTemplate;
-        this.postRepository = postRepository;
-        this.storageService = storageService;
+        public PostDTO fromPostToPostDTO(Post post) {
+        return new PostDTO.Builder()
+                .id(post.getId())
+                .idOwner(post.getIdOwner())
+                .title(post.getTitle())
+                .photos(post.getUrls())
+                .content(post.getContent())
+                .build();
+    }
+
+    private PostDTO fromElasticDTOToPostDTO(PostElasticDTO elasticDTO) {
+        return new PostDTO.Builder()
+                .id(Long.getLong(elasticDTO.getId()))
+                .idOwner(elasticDTO.getIdOwner())
+                .title(elasticDTO.getTitle())
+                .content(elasticDTO.getContent())
+                .photos(elasticDTO.getUrls()) // Загружаем фото из URL
+                .build();
     }
 }
