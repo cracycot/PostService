@@ -1,6 +1,6 @@
 package org.example.utils;
 
-import org.example.models.Post;
+import org.example.DTO.PostDTO;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -11,8 +11,8 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
     @Bean
-    public RedisTemplate<String, Post> redisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, Post> template = new RedisTemplate<>();
+    public RedisTemplate<String, PostDTO> postDTORedisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, PostDTO> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
