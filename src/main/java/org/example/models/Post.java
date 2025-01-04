@@ -1,11 +1,14 @@
 package org.example.models;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "posts")
@@ -18,11 +21,15 @@ public class Post {
     @Column(name = "owner_id")
     private Long idOwner;
 
+    @Field(type = FieldType.Text, name = "title")
     private String title;
 
     @Field(type = FieldType.Text, name = "content")
     private String content;
+
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    @Field(type = FieldType.Object, index = false)
     private List<Image> images = new ArrayList<>();
 
     public Post() {}
@@ -70,15 +77,11 @@ public class Post {
     public static class Builder {
         private static Post post = new Post();
 
-        public Builder id(Long id) {
-            post.id = id;
-            return this;
-        }
-
         public Builder idOwner(Long idOwner) {
             post.idOwner = idOwner;
             return this;
         }
+
         public Builder title(String title) {
             post.title = title;
             return this;
@@ -100,22 +103,14 @@ public class Post {
     }
 
     /**
-     * Метод для получения всех PhotosUrls
+     * Метод для получения всех Urls
      */
-    public List<String> getPhotosUrls() {
-        List<String> photosUrls = new ArrayList<>();
-        for (Image image : images) {
-            photosUrls.add(image.getS3url());
+    public List<String> getUrls() {
+        if (images == null) {
+            return Collections.emptyList();
         }
-        return photosUrls;
-    }
-
-    @Override
-    public String toString() {
-        return "PostElastic{" +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", content='" + content + '\'' +
-                '}';
+        return images.stream()
+                .map(Image::getS3url)
+                .collect(Collectors.toList());
     }
 }
