@@ -19,16 +19,12 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
-
-    // Мокируем RedisTemplate для PostDTO
     @Mock
     private RedisTemplate<String, PostDTO> postDTORedisTemplate;
 
-    // Мокируем ValueOperations для PostDTO
     @Mock
     private ValueOperations<String, PostDTO> valueOperations;
 
@@ -48,7 +44,7 @@ class PostServiceTest {
     }
 
     @Test
-    void testGetPostById_WhenPostExistsInDB() {
+    void testGetPostById_WhenPostExistsInDB_StandardBehaviour() {
         Long testId = 1L;
         Post mockPost = new Post();
         mockPost.setId(testId);
@@ -56,7 +52,6 @@ class PostServiceTest {
         mockPost.setIdOwner(100L);
         mockPost.setContent("Test content");
 
-        // Инициализируем изображения
         Image image1 = new Image();
         image1.setS3url("url1");
         Image image2 = new Image();
@@ -67,11 +62,9 @@ class PostServiceTest {
         Mockito.when(valueOperations.get("post:" + testId))
                 .thenReturn(null);
 
-        // Имитация наличия поста в БД
         Mockito.when(postRepository.findByIdWithImages(testId))
                 .thenReturn(Optional.of(mockPost));
 
-        // Вызываем тестируемый метод
         Optional<PostDTO> result = postService.getPostById(testId);
 
         // Проверяем, что пост найден
@@ -85,21 +78,20 @@ class PostServiceTest {
         Mockito.verify(valueOperations, Mockito.times(1))
                 .set(
                         ArgumentMatchers.eq("post:" + testId),
-                        ArgumentMatchers.any(PostDTO.class), // Ожидаем PostDTO, а не Post
+                        ArgumentMatchers.any(PostDTO.class),
                         ArgumentMatchers.eq(10L),
                         ArgumentMatchers.eq(TimeUnit.MINUTES)
                 );
     }
 
     @Test
-    void testCreatePost() {
-        // Используем Builder для создания PostDTO
+    void testCreatePost_WhenPostExistsInDB_StandardBehaviour() {
         PostDTO postDTO = new PostDTO.Builder()
                 .id(10L)
                 .idOwner(200L)
                 .title("New Post")
                 .content("Test content")
-                .photos(Arrays.asList("url1", "url2")) // Инициализируем urls
+                .photos(Arrays.asList("url1", "url2"))
                 .build();
 
         // Имитация сохранения поста в репозиторий
@@ -110,14 +102,11 @@ class PostServiceTest {
                     return savedPost;
                 });
 
-        // Вызываем логику создания поста
         postService.createPost(postDTO);
 
-        // Проверяем, что метод save() в репозитории был вызван один раз
         Mockito.verify(postRepository, Mockito.times(1))
                 .save(ArgumentMatchers.any(Post.class));
 
-        // Захватываем аргументы, переданные в метод set Redis
         ArgumentCaptor<PostDTO> postDTOCaptor = ArgumentCaptor.forClass(PostDTO.class);
 
         Mockito.verify(valueOperations, Mockito.times(1))
