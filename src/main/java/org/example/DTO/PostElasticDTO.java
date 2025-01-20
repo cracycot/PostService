@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(indexName = "posts")
+// @Mapping(mappingPath = "/mappings/my_index_mapping.json")
 public class PostElasticDTO {
 
     @Field(type = FieldType.Text)
